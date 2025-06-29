@@ -270,7 +270,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   v-model="createDialog.master_preparation"
-                  label="Preparação Principal"
+                  label="Mestre do Preparo"
                   variant="outlined"
                   density="comfortable"
                 ></v-text-field>
@@ -310,7 +310,7 @@
                   <template v-slot:activator="{ props }">
                     <v-text-field
                       v-model="createDialog.formattedDate"
-                      label="Data de Preparação"
+                      label="Data do Preparo"
                       prepend-icon="mdi-calendar"
                       readonly
                       v-bind="props"
@@ -319,8 +319,10 @@
                     ></v-text-field>
                   </template>
                   <v-date-picker
-                    v-model="createDialog.date"
+                    v-model="createDialog.dateValue"
                     @update:model-value="updateCreateDate"
+                    show-adjacent-months
+                    hide-header
                   ></v-date-picker>
                 </v-menu>
               </v-col>
@@ -733,9 +735,44 @@ export default {
       console.log('Editar item:', item)
     }
 
-    const deleteItem = (item) => {
-      // Implementar exclusão de item
+    const deleteItem = async (item) => {
       console.log('Excluir item:', item)
+      // TODO: Implement delete functionality:
+      // 1. Show a confirmation dialog (e.g., v-dialog or a confirmation library)
+      // 2. If confirmed, make a DELETE request to /inventory/{id}
+      // 3. Show snackbar feedback
+      // 4. Call fetchInventory()
+      if (confirm(`Tem certeza que deseja excluir o item "${item.description}"?`)) {
+        try {
+          const response = await fetch(`http://localhost:3000/inventory/${item.id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${authStore.token}`,
+            },
+          })
+          if (!response.ok) {
+            const errorData = await response
+              .json()
+              .catch(() => ({ message: 'Erro ao excluir item' }))
+            throw new Error(errorData.message || 'Erro ao excluir item')
+          }
+          snackbar.text = 'Item excluído com sucesso!'
+          snackbar.color = 'success'
+          snackbar.show = true
+          fetchInventory() // Refresh
+        } catch (error) {
+          console.error('Erro ao excluir item:', error)
+          snackbar.text = error.message || 'Erro ao excluir item'
+          snackbar.color = 'error'
+          snackbar.show = true
+        }
+      }
+    }
+    // --- NEW: Update date function for Create Dialog ---
+    const updateCreateDate = (date) => {
+      createDialog.date = date // Keep as Date object
+      createDialog.formattedDate = formatDateForDisplay(date)
+      createDialog.dateMenu = false
     }
     const createDialog = reactive({
       show: false,
@@ -750,7 +787,8 @@ export default {
       quantity: 0,
       date: new Date().toISOString().substr(0, 10),
       dateMenu: false,
-      formattedDate: formatDateForDisplay(new Date()),
+      formattedDate: '',
+      dateValue: null,
     })
     const openCreateDialog = () => {
       // Resetar o formulário
@@ -769,7 +807,81 @@ export default {
     onMounted(() => {
       fetchInventory()
     })
+    const closeCreateDialog = () => {
+      createDialog.show = false
+    }
+    const submitCreate = async () => {
+      if (!createForm.value) {
+        console.error('Create form ref is not available.')
+        snackbar.text = 'Erro interno: Não foi possível acessar o formulário.'
+        snackbar.color = 'error'
+        snackbar.show = true
+        return // Stop execution if the ref is null
+      }
+      // Ensure form ref exists and validate
+      const { valid } = await createForm.value.validate()
+      if (!valid) {
+        console.warn('Create form is invalid')
+        return
+      }
 
+      createDialog.loading = true
+
+      try {
+        const body = {
+          description: createDialog.description,
+          tankage: createDialog.tankage || null, // Send null or empty string based on backend needs
+          origin: createDialog.origin || null,
+          master_preparation: createDialog.master_preparation || null,
+          input_type: createDialog.input_type || null,
+          obs: createDialog.obs || null,
+          // Format the date stored in createDialog.date to ISO string for the API
+          preparation_date: formatDateForApi(createDialog.dateValue),
+          quantity: Number(createDialog.quantity) || 0, // Ensure it's a number
+        }
+
+        console.log('Sending data to /inventory:', body) // Debugging line
+
+        const response = await fetch('http://localhost:3000/inventory', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authStore.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        })
+
+        if (!response.ok) {
+          let errorMsg = 'Erro ao criar item de estoque'
+          try {
+            const errorData = await response.json()
+            errorMsg = errorData.message || errorMsg
+            console.error('API Error Data:', errorData) // Log detailed error
+          } catch (e) {
+            console.error('Failed to parse error response:', await response.text())
+          } finally {
+            createDialog.loading = false
+          }
+          throw new Error(errorMsg)
+        }
+
+        // If response is OK (e.g., 201 Created)
+        snackbar.text = 'Item de estoque criado com sucesso!'
+        snackbar.color = 'success'
+        snackbar.show = true
+
+        closeCreateDialog() // Close the modal
+        page.value = 1 // Go back to first page to see the new item potentially
+        fetchInventory() // Refresh the inventory list
+      } catch (error) {
+        console.error('Erro ao criar item:', error)
+        snackbar.text = error.message || 'Erro ao criar item de estoque'
+        snackbar.color = 'error'
+        snackbar.show = true
+      } finally {
+        createDialog.loading = false // Reset loading state
+      }
+    }
     return {
       loading,
       search,
@@ -804,6 +916,10 @@ export default {
       updateOutputDate,
       createDialog,
       openCreateDialog,
+      updateCreateDate,
+      closeCreateDialog,
+      submitCreate,
+      createForm,
     }
   },
 }

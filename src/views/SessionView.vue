@@ -106,7 +106,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   v-model="createDialog.item.masterDriver"
-                  label="Maquinista Principal"
+                  label="Mestre Dirigente"
                   :rules="[rules.required]"
                   required
                   variant="outlined"
@@ -118,7 +118,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   v-model="createDialog.item.masterSupport"
-                  label="Maquinista Apoio"
+                  label="Mestre Assistente"
                   :rules="[rules.required]"
                   required
                   variant="outlined"
@@ -186,7 +186,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   v-model.number="createDialog.item.quantityLeft"
-                  label="Litros Restantes (Manual)"
+                  label="Litros Restantes"
                   type="number"
                   min="0"
                   :rules="[rules.required, rules.nonNegative]"
@@ -242,7 +242,7 @@
                         :items="availableInventoryItems"
                         item-title="description"
                         item-value="id"
-                        label="Item do Inventário"
+                        label="Item do Estoque"
                         placeholder="Selecione um item"
                         :rules="[rules.required]"
                         required
@@ -436,8 +436,8 @@ const totalPages = computed(() => {
 const headers = [
   { title: 'Descrição', key: 'description', sortable: true, align: 'start' }, // Key matches GET response
   { title: 'Data', key: 'sessionDate', sortable: true },
-  { title: 'Maquinista Principal', key: 'masterDriver', sortable: true },
-  { title: 'Maquinista Apoio', key: 'masterSupport', sortable: true },
+  { title: 'Mestre Dirigente', key: 'masterDriver', sortable: true },
+  { title: 'Mestre Assistente', key: 'masterSupport', sortable: true },
   { title: 'Litros Usados', key: 'quantityUsed', sortable: false, align: 'end' },
   { title: 'Litros Restantes', key: 'quantityLeft', sortable: false, align: 'end' },
   { title: 'Ações', key: 'actions', sortable: false, align: 'center' },
@@ -546,8 +546,14 @@ const fetchAvailableInventory = async () => {
     }
 
     const data = await response.json()
+
     // Make sure items have 'id' and 'description' or adapt item-title/item-value
-    availableInventoryItems.value = data.items || []
+    const items = data.items || []
+    availableInventoryItems.value = items.map((item) => ({
+      id: item.id, // Assuming id is a string
+      description: `${item.description} (${item.quantity}L)`, // Display format,
+    }))
+
     if (availableInventoryItems.value.length === 0) {
       createDialog.inventoryError = 'Nenhum item de inventário encontrado para seleção.'
     }
