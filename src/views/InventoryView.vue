@@ -119,20 +119,6 @@
               </template>
             </v-tooltip>
 
-            <v-tooltip text="Editar">
-              <template v-slot:activator="{ props }">
-                <v-icon
-                  size="small"
-                  color="primary"
-                  class="mr-2"
-                  v-bind="props"
-                  @click="editItem(item)"
-                >
-                  mdi-pencil
-                </v-icon>
-              </template>
-            </v-tooltip>
-
             <v-tooltip text="Excluir">
               <template v-slot:activator="{ props }">
                 <v-icon size="small" color="grey" v-bind="props" @click="deleteItem(item)">
@@ -448,6 +434,7 @@
 <script>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { apiService } from '@/services/apiService.js'
 
 export default {
   name: 'InventoryView',
@@ -556,33 +543,21 @@ export default {
 
     const fetchInventory = async () => {
       loading.value = true
-
       try {
-        let url = `http://localhost:3000/inventory?page=${page.value}&limit=${limit.value}`
-
-        // Adicionar filtro se houver pesquisa
-        if (search.value) {
-          url += `&filter=${filterField.value}:${search.value}`
+        // 2. Montar os parâmetros para o serviço
+        const params = {
+          page: page.value,
+          limit: limit.value,
+          filter: undefined, // O serviço espera um único campo 'filter' no formato 'campo:valor'
         }
-
-        // Adicionar filtro de data se selecionado
         if (filterField.value === 'preparationDate' && preparationDate.value) {
-          url += `&filter=preparationDate:${preparationDate.value}`
+          params.filter = `preparationDate:${preparationDate.value}`
+        } else if (search.value) {
+          params.filter = `${filterField.value}:${search.value}`
         }
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${authStore.token}`,
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error('Erro ao buscar dados do estoque')
-        }
-
-        const data = await response.json()
+        // 3. Usar o serviço de API
+        const data = await apiService.getInventory(params)
 
         inventoryItems.value = data.items
         totalItems.value = data.total
@@ -648,34 +623,19 @@ export default {
 
     const submitInput = async () => {
       if (!inputForm.value.validate()) return
-
       inputDialog.loading = true
-
       try {
-        const response = await fetch(
-          `http://localhost:3000/inventory/${inputDialog.item.id}/input`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${authStore.token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              quantity: inputDialog.quantity,
-              obs: inputDialog.obs,
-              outputDate: formatDateForApi(inputDialog.date),
-            }),
-          },
-        )
-
-        if (!response.ok) {
-          throw new Error('Erro ao registrar entrada de estoque')
+        const payload = {
+          quantity: inputDialog.quantity,
+          obs: inputDialog.obs,
+          outputDate: formatDateForApi(inputDialog.date),
         }
+        // 4. Usar o serviço de API
+        await apiService.addStock(inputDialog.item.id, payload)
 
         snackbar.text = 'Entrada de estoque registrada com sucesso!'
         snackbar.color = 'success'
         snackbar.show = true
-
         closeInputDialog()
         fetchInventory()
       } catch (error) {
@@ -690,34 +650,19 @@ export default {
 
     const submitOutput = async () => {
       if (!outputForm.value.validate()) return
-
       outputDialog.loading = true
-
       try {
-        const response = await fetch(
-          `http://localhost:3000/inventory/${outputDialog.item.id}/output`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${authStore.token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              quantity: outputDialog.quantity,
-              obs: outputDialog.obs,
-              outputDate: formatDateForApi(outputDialog.date),
-            }),
-          },
-        )
-
-        if (!response.ok) {
-          throw new Error('Erro ao registrar saída de estoque')
+        const payload = {
+          quantity: outputDialog.quantity,
+          obs: outputDialog.obs,
+          outputDate: formatDateForApi(outputDialog.date),
         }
+        // 5. Usar o serviço de API
+        await apiService.removeStock(outputDialog.item.id, payload)
 
         snackbar.text = 'Saída de estoque registrada com sucesso!'
         snackbar.color = 'success'
         snackbar.show = true
-
         closeOutputDialog()
         fetchInventory()
       } catch (error) {
@@ -730,36 +675,16 @@ export default {
       }
     }
 
-    const editItem = (item) => {
-      // Implementar edição de item
-      console.log('Editar item:', item)
-    }
-
     const deleteItem = async (item) => {
-      console.log('Excluir item:', item)
-      // TODO: Implement delete functionality:
-      // 1. Show a confirmation dialog (e.g., v-dialog or a confirmation library)
-      // 2. If confirmed, make a DELETE request to /inventory/{id}
-      // 3. Show snackbar feedback
-      // 4. Call fetchInventory()
       if (confirm(`Tem certeza que deseja excluir o item "${item.description}"?`)) {
         try {
-          const response = await fetch(`http://localhost:3000/inventory/${item.id}`, {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${authStore.token}`,
-            },
-          })
-          if (!response.ok) {
-            const errorData = await response
-              .json()
-              .catch(() => ({ message: 'Erro ao excluir item' }))
-            throw new Error(errorData.message || 'Erro ao excluir item')
-          }
+          // 6. Usar o serviço de API
+          await apiService.deleteInventoryItem(item.id)
+
           snackbar.text = 'Item excluído com sucesso!'
           snackbar.color = 'success'
           snackbar.show = true
-          fetchInventory() // Refresh
+          fetchInventory()
         } catch (error) {
           console.error('Erro ao excluir item:', error)
           snackbar.text = error.message || 'Erro ao excluir item'
@@ -810,78 +735,41 @@ export default {
     const closeCreateDialog = () => {
       createDialog.show = false
     }
+
     const submitCreate = async () => {
-      if (!createForm.value) {
-        console.error('Create form ref is not available.')
-        snackbar.text = 'Erro interno: Não foi possível acessar o formulário.'
-        snackbar.color = 'error'
-        snackbar.show = true
-        return // Stop execution if the ref is null
-      }
-      // Ensure form ref exists and validate
       const { valid } = await createForm.value.validate()
-      if (!valid) {
-        console.warn('Create form is invalid')
-        return
-      }
-
+      if (!valid) return
       createDialog.loading = true
-
       try {
-        const body = {
+        const payload = {
           description: createDialog.description,
-          tankage: createDialog.tankage || null, // Send null or empty string based on backend needs
+          tankage: createDialog.tankage || null,
           origin: createDialog.origin || null,
           master_preparation: createDialog.master_preparation || null,
           input_type: createDialog.input_type || null,
           obs: createDialog.obs || null,
-          // Format the date stored in createDialog.date to ISO string for the API
           preparation_date: formatDateForApi(createDialog.dateValue),
-          quantity: Number(createDialog.quantity) || 0, // Ensure it's a number
+          quantity: Number(createDialog.quantity) || 0,
         }
+        // 7. Usar o serviço de API
+        await apiService.createInventoryItem(payload)
 
-        console.log('Sending data to /inventory:', body) // Debugging line
-
-        const response = await fetch('http://localhost:3000/inventory', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${authStore.token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        })
-
-        if (!response.ok) {
-          let errorMsg = 'Erro ao criar item de estoque'
-          try {
-            const errorData = await response.json()
-            errorMsg = errorData.message || errorMsg
-            console.error('API Error Data:', errorData) // Log detailed error
-          } catch (e) {
-            console.error('Failed to parse error response:', await response.text())
-          } finally {
-            createDialog.loading = false
-          }
-          throw new Error(errorMsg)
-        }
-
-        // If response is OK (e.g., 201 Created)
         snackbar.text = 'Item de estoque criado com sucesso!'
         snackbar.color = 'success'
         snackbar.show = true
-
-        closeCreateDialog() // Close the modal
-        page.value = 1 // Go back to first page to see the new item potentially
-        fetchInventory() // Refresh the inventory list
+        closeCreateDialog()
+        page.value = 1
+        fetchInventory()
       } catch (error) {
         console.error('Erro ao criar item:', error)
         snackbar.text = error.message || 'Erro ao criar item de estoque'
         snackbar.color = 'error'
         snackbar.show = true
       } finally {
-        createDialog.loading = false // Reset loading state
+        createDialog.loading = false
       }
     }
+
     return {
       loading,
       search,
@@ -904,7 +792,6 @@ export default {
       fetchInventory,
       clearFilters,
       formatDate,
-      editItem,
       deleteItem,
       openInputDialog,
       closeInputDialog,

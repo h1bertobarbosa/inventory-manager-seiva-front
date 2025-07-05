@@ -115,6 +115,7 @@
 <script>
 import { ref, reactive } from 'vue'
 import { VueMaskDirective } from 'v-mask'
+import { apiService } from '@/services/apiService.js'
 
 export default {
   name: 'SignupForm',
@@ -160,48 +161,36 @@ export default {
 
     const companyDocumentRules = [
       (v) => !!v || 'CNPJ é obrigatório',
-      (v) => /^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$/.test(v) || 'CNPJ deve estar no formato correto',
+      (v) => /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(v) || 'CNPJ deve estar no formato correto',
     ]
 
     const submitForm = async () => {
-      if (!form.value.validate()) return
+      const { valid } = await form.value.validate()
+      if (!valid) return
 
       loading.value = true
 
       try {
-        // Remover formatação do CNPJ antes de enviar
+        // A lógica de formatação do CNPJ permanece no componente
         const formattedData = {
           ...formData,
           companyDocument: formData.companyDocument.replace(/[^\d]/g, ''),
         }
 
-        const response = await fetch('http://localhost:3000/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formattedData),
-        })
+        // 2. Usar o serviço de API para fazer o cadastro
+        await apiService.signup(formattedData)
 
-        if (!response.ok) {
-          throw new Error('Erro ao realizar cadastro')
-        }
-
-        await response.json()
-
+        // A lógica de sucesso permanece no componente
         snackbar.text = 'Cadastro realizado com sucesso!'
         snackbar.color = 'success'
         snackbar.show = true
 
-        // Limpar formulário após cadastro bem-sucedido
         form.value.reset()
         Object.keys(formData).forEach((key) => (formData[key] = ''))
-
-        // Aqui você pode redirecionar o usuário ou fazer outra ação
-        // router.push('/login');
       } catch (error) {
-        console.error('Erro:', error)
-        snackbar.text = error.message || 'Ocorreu um erro ao realizar o cadastro'
+        // A lógica de erro permanece no componente
+        console.error('Erro de cadastro:', error)
+        snackbar.text = error.message
         snackbar.color = 'error'
         snackbar.show = true
       } finally {

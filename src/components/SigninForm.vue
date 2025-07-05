@@ -68,6 +68,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { apiService } from '@/services/apiService.js'
 
 export default {
   name: 'SigninForm',
@@ -97,34 +98,23 @@ export default {
     const passwordRules = [(v) => !!v || 'Senha é obrigatória']
 
     const submitForm = async () => {
-      if (!form.value.validate()) return
+      // A validação do formulário permanece a mesma
+      const { valid } = await form.value.validate()
+      if (!valid) return
 
       loading.value = true
 
       try {
-        const response = await fetch('http://localhost:3000/signin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        })
+        // 2. Usar o serviço de API para fazer o login
+        const data = await apiService.signin(formData)
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'Credenciais inválidas')
-        }
-
-        const data = await response.json()
-
-        // Armazenar o token no store e localStorage
+        // A lógica de sucesso permanece no componente
         authStore.setToken(data.accessToken)
-
-        // Redirecionar para o dashboard
         router.push('/dashboard')
       } catch (error) {
-        console.error('Erro:', error)
-        snackbar.text = error.message || 'Erro ao fazer login'
+        // A lógica de erro permanece no componente
+        console.error('Erro de login:', error)
+        snackbar.text = error.message
         snackbar.color = 'error'
         snackbar.show = true
       } finally {
