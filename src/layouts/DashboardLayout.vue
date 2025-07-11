@@ -29,6 +29,12 @@
           :to="{ name: 'Session' }"
           value="Session"
         ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-package-variant-closed"
+          title="Usuários"
+          :to="{ name: 'User' }"
+          value="User"
+        ></v-list-item>
       </v-list>
 
       <template v-slot:append>

@@ -364,12 +364,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
 import { apiService } from '@/services/apiService.js'
-// --- Stores ---
-const authStore = useAuthStore()
-
-// --- Refs and Reactive State ---
 const loading = ref(false)
 const search = ref('')
 const page = ref(1)

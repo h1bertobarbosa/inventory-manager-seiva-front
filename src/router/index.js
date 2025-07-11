@@ -6,6 +6,7 @@ import DashboardView from '@/views/DashboardView.vue'
 import InventoryView from '@/views/InventoryView.vue'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
 import SessionView from '@/views/SessionView.vue'
+import UserView from '@/views/UserView.vue'
 
 const routes = [
   {
@@ -43,6 +44,11 @@ const routes = [
         path: '/sessions',
         name: 'Session',
         component: SessionView,
+      },
+      {
+        path: '/users',
+        name: 'User',
+        component: UserView,
       },
     ],
   },

@@ -189,4 +189,40 @@ export const apiService = {
 
     return response.json()
   },
+
+  /**
+   * Busca a lista de usuários com paginação e filtro.
+   * @param {object} params - Parâmetros como page, limit, search.
+   */
+  getUsers: (params) => {
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v != null && v !== ''),
+    )
+    return _request(`/users?${new URLSearchParams(cleanParams)}`, { method: 'GET' })
+  },
+
+  /**
+   * Cria um novo usuário.
+   * @param {object} payload - Dados do usuário { name, email, password }.
+   */
+  createUser: (payload) => {
+    return _request('/users', { method: 'POST', body: JSON.stringify(payload) })
+  },
+
+  /**
+   * Atualiza um usuário existente.
+   * @param {string} userId - O ID do usuário.
+   * @param {object} payload - Dados a serem atualizados { name, email, password? }.
+   */
+  updateUser: (userId, payload) => {
+    return _request(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+  },
+
+  /**
+   * Exclui um usuário.
+   * @param {string} userId - O ID do usuário.
+   */
+  deleteUser: (userId) => {
+    return _request(`/users/${userId}`, { method: 'DELETE' })
+  },
 }
